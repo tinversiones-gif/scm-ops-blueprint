@@ -1,0 +1,11 @@
+# Config Contract
+
+## API
+- NODE_ENV
+- PORT
+- APP_VERSION
+
+## WEB
+- VITE_API_URL
+- VITE_ENV_NAME
+- VITE_APP_VERSION
