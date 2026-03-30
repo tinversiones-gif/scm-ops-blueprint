@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17
+    container_name: scm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: scmdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../db/init:/docker-entrypoint-initdb.d
+
+  api:
+    build:
+      context: ../api
+    container_name: scm-api
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../api/.env.docker
+    volumes:
+      - ../api:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
