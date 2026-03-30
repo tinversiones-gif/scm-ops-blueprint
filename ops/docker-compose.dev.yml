@@ -28,5 +28,15 @@ services:
       - ../api:/app
       - /app/node_modules
 
+  web:
+    build:
+      context: ../web
+    container_name: scm-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+
 volumes:
   postgres_data:
