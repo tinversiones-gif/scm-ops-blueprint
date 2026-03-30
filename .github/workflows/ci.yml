@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feature/**
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  api:
+    name: API checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: api
+
+    env:
+      NODE_ENV: development
+      PORT: 3000
+      APP_VERSION: ci
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: scmdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: scmdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d scmdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install API dependencies
+        run: npm install
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U postgres && break
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
+      - name: Create tasks table
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/scmdb <<EOF
+          CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            status VARCHAR(50) NOT NULL DEFAULT 'todo',
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+          EOF
+
+      - name: Start API
+        run: npm run dev &
+
+      - name: Wait for API
+        run: |
+          sleep 10
+          curl http://localhost:3000/health
+
+      - name: Check tasks endpoint
+        run: curl http://localhost:3000/tasks
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install web dependencies
+        run: npm install
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: http://localhost:3000
+        run: npm run build
